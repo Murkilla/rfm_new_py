@@ -1,0 +1,186 @@
+{% extends "base.html" %}
+
+{% block script %}
+<script src="../static/js/account.js"></script>
+<script>
+    $(function () {
+        $(".date").datepicker({
+            minViewMode: 1,
+            maxViewMode: 2,
+            format: 'yyyy-mm',
+            language: "zh-TW",
+      });
+    });
+</script>
+<style type="text/css">
+    .loading{
+      background: rgba(0, 0, 0, 0);
+      display: none;
+      height: 100%;
+      left: 0;
+      position: fixed;
+      top: 0;
+      width: 100%;
+      z-index: 999;
+    }
+  </style>
+{% endblock script%}
+
+{% block content %}
+<div class="main-content">
+    <div class="main-content-inner container-fluid mt-3">
+        </br>
+        <div class="form-group row">
+            <label class="col-md-2 col-form-label" for="item">帳戶</label>
+            <div class="col-xs-3">
+                <select class="form-control" id="item">
+                    <option>請選擇項目</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group row">
+            <label class="col-md-2 col-form-label" for="web_property">資源</label>
+            <div class="col-xs-3">
+                <select class="form-control" id="web_property">
+                    <option>請選擇項目</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group row">
+            <label class="col-md-2 col-form-label" for="profile">資料檢視</label>
+            <div class="col-xs-3">
+                <select class="form-control" id="profile">
+                    <option>請選擇項目</option>
+                </select>
+            </div>
+        </div>
+        <div class="form-group row">
+                <label class="col-md-2 col-form-label" for="profile">結束日期</label>
+                <div class="col-xs-3">
+                    <div class="input-group date">
+                        <input class="form-control" type="text" name="enddate"/><span class="input-group-addon"><i class="glyphicon glyphicon-th"></i></span>
+                    </div>
+                </div>
+            </div>
+        <div class="form-group row">
+            <label class="col-md-2 col-form-label" for="profile">時間區間</label>
+            <div class="col-xs-3">
+                <label class="radio-inline">
+                    <input name="dayType" type="radio" value="1"/>月
+                </label>
+                <label class="radio-inline">
+                    <input name="dayType" type="radio" value="3"/>季
+                </label>
+                <label class="radio-inline">
+                    <input name="dayType" type="radio" value="6"/>半年
+                </label>
+                <label class="radio-inline">
+                    <input name="dayType" type="radio" value="12"/>一年
+                </label>
+                <button type="button" id="action" class="btn-primary" style="float: right;">送出</button>
+            </div>   
+        </div>
+        
+        <div id=tableArea>
+            <table id="tableAll" class="table table-bordered"></table>
+            <table id="tableNew" class="table table-bordered"></table>
+            <table id="tableReturn" class="table table-bordered"></table>
+        </div>
+        <div id="loadingImg" class="loading"><img src="../static/images/loading.gif" style="padding-top:100px;"/></div>
+    </div>
+</div>
+
+<script type="text/javascript">
+    $('#action').on('click',function(){
+        $('#tableArea table#tableAll thead,#tableArea table#tableAll tbody,#tableArea h2,#tableArea p').remove();
+        var id = $('#profile').val();
+        var enddate = $('input[name="enddate"]').val();
+        var dayType = $('input[name="dayType"]:checked').val();
+
+        if(dayType == '' || dayType == undefined || enddate == '' || enddate == undefined){
+            alert('請輸入日期');
+            return;
+        }else{
+            var json_data = {
+                "profile_id":id,
+                "enddate":enddate + '-01',
+                "dayType":dayType
+            };
+            
+            $.ajax({
+                type: "POST",
+                url: "{{ url_for('rfm_action')}}",
+                contentType: 'application/json; charset=UTF-8',
+                dataType: "json",
+                data: JSON.stringify(json_data),
+                success: function(data){
+                if(data.error == 'fail'){
+                    alert("資料有誤！！！");
+                }else if(data.error == 'empty'){
+                    alert("查無相關資料");
+                }else if(data.error == 'missingKey'){
+                    alert("資料有誤！！！ Key Not Found")
+                }else if(data.error == 'missingData'){
+                    alert("資料有誤！！！ Loss Data")
+                }
+                $('table#tableAll').before('<p>眾數:' + data.mode[0] + "</p>")
+                $('table#tableAll').before('<p>均值:' + data.mean[0] + "</p>")
+                for(j=0;j<3;j++){
+                    if(j==0){
+                        var type = 'All';
+                    }else if(j==1){
+                        var type = 'New';
+                    }else if(j==2){
+                        var type = 'Return';
+                    }
+                    str = '<thead><tr><th>' + type + '</th>';
+                    if(data[type][0] != undefined){
+                        str += '<th>30days</th>'
+                    }
+                    if(data[type][1] != undefined){
+                        str += '<th>90days</th>'
+                    }
+                    if(data[type][2] != undefined){
+                        str += '<th>180days</th>'
+                    }
+                    if(data[type][3] != undefined){
+                        str += '<th>360days</th>'
+                    }
+                    str += '</tr></thead><tbody>';
+                    for(i=0;i<3;i++){
+                        str += '<tr>';
+                        if(data[type][0] != undefined){
+                            str += '<td>' + data.title[i] + '</td>'
+                            str += '<td>' + data[type][0].day30[i] + '</td>'
+                        }
+                        if(data[type][1] != undefined){
+                            str += '<td>' + data[type][1].day90[i] + '</td>'
+                        }
+                        if(data[type][2] != undefined){
+                            str += '<td>' + data[type][2].day180[i] + '</td>'
+                        }
+                        if(data[type][3] != undefined){
+                            str += '<td>' + data[type][3].day360[i] + '</td>'
+                        }
+                        str += '</tr>';
+                    }
+                    str += '</tbody>';
+                    
+                    $('table#tableAll').append(str);
+                }
+                
+                },
+                beforeSend:function(){
+                $('#loadingImg').show();
+                },
+                complete:function(){
+                $('#loadingImg').hide();
+                },
+                error: function(jqXHR){
+                console.log(jqXHR.responseText);
+                }
+            });
+        }
+    });
+</script>
+{% endblock content %}
